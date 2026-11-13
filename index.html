@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bottle drift on ocean currents</title>
+<meta name="description" content="Drop a bottle anywhere on the ocean and watch it drift for five years on real surface currents. #30DayMapChallenge Day 13, Interactive. © Elias Omondi, 2026">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="maplibre-gl.css">
+<style>
+:root{
+  --ink:#e9e4d8; --dim:#9aa3ad; --faint:#5f6b78; --panel:rgba(8,14,24,.78); --line:rgba(233,228,216,.14);
+  --amber:#ffb85c; --bg:#050a12;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Barlow,system-ui,sans-serif;overflow:hidden}
+#map{position:absolute;inset:0}
+#scrim-t,#scrim-b{position:absolute;left:0;right:0;pointer-events:none;z-index:1}
+#scrim-t{top:0;height:230px;background:linear-gradient(rgba(2,5,12,.82),rgba(2,5,12,.45) 55%,rgba(2,5,12,0))}
+#scrim-b{bottom:0;height:150px;background:linear-gradient(rgba(2,5,12,0),rgba(2,5,12,.6))}
+#head,#clock,#bar,#log,#credit{z-index:2}
+#head h1,#head p,#clock{text-shadow:0 1px 10px rgba(0,0,0,.55)}
+.maplibregl-canvas{cursor:crosshair}
+.maplibregl-ctrl-attrib{background:rgba(5,10,18,.6)!important;color:var(--faint)!important;font-size:10px}
+.maplibregl-ctrl-attrib a{color:var(--dim)!important}
+.maplibregl-ctrl-bottom-right{bottom:16px;right:12px}
+.maplibregl-ctrl-group{background:var(--panel)!important;border:1px solid var(--line)}
+.maplibregl-ctrl-group button{filter:invert(.85)}
+#head{position:absolute;left:24px;top:20px;max-width:420px;pointer-events:none}
+#head h1 span{display:block}
+#head h1{font-family:"Cormorant Garamond",serif;font-weight:600;font-size:40px;line-height:1.02;margin:0 0 8px;letter-spacing:.2px}
+#head p{margin:0;color:var(--dim);font-weight:300;font-size:15px;line-height:1.45}
+#head p b{color:var(--amber);font-weight:500}
+#clock{position:absolute;right:24px;top:20px;text-align:right;pointer-events:none}
+#clock .yr{font-family:"Cormorant Garamond",serif;font-size:34px;font-weight:600;line-height:1}
+#clock .mo{color:var(--dim);font-size:14px;letter-spacing:.12em;text-transform:uppercase;margin-top:4px}
+#bar{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:flex;gap:6px;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px;backdrop-filter:blur(8px)}
+#bar button{font:500 13px Barlow,sans-serif;color:var(--ink);background:transparent;border:0;border-radius:999px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+#bar button:hover{background:rgba(255,255,255,.08)}
+#bar button.on{background:rgba(255,184,92,.18);color:var(--amber)}
+#bar .sep{width:1px;height:20px;background:var(--line)}
+#log{position:absolute;left:24px;bottom:22px;width:330px;max-height:42vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.drop{position:relative;background:rgba(6,12,24,.72);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:12px 14px 12px;font-size:13px;line-height:1.4;backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:background .2s}
+.drop:hover{background:rgba(10,18,34,.82)}
+.drop .top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.drop .sw{width:11px;height:11px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent),0 0 12px var(--c);flex:none}
+.drop .t{font-weight:500;color:var(--ink);font-size:14px;flex:1}
+.drop .age{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.drop .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.drop .stats div{display:flex;flex-direction:column}
+.drop .stats b{font-family:"Cormorant Garamond",serif;font-weight:600;font-size:24px;line-height:1;color:var(--ink);font-variant-numeric:lining-nums tabular-nums}
+.drop .stats i{font-style:normal;color:var(--faint);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+.drop .where{color:var(--dim);font-weight:300;margin-top:9px;font-size:12.5px}
+.drop .prog{height:2px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:10px;overflow:hidden}
+.drop .prog span{display:block;height:100%;background:rgba(255,255,255,.45)}
+.olab{display:block;transition:opacity .2s;font-family:"Cormorant Garamond",serif;font-style:italic;font-weight:500;font-size:15px;letter-spacing:.18em;color:rgba(225,240,255,.62);text-shadow:0 1px 6px rgba(0,10,30,.9);pointer-events:none;white-space:nowrap}
+#credit{position:absolute;right:64px;bottom:26px;color:var(--faint);font-size:11px;text-align:right;line-height:1.5;max-width:300px}
+#credit a{color:var(--dim)}
+#about{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(3,6,12,.6);z-index:5}
+#about.show{display:flex}
+#about .card{max-width:560px;margin:16px;background:#0b1320;border:1px solid var(--line);border-radius:14px;padding:26px 28px;font-weight:300;line-height:1.55;color:#cfd5dc;font-size:15px;max-height:85vh;overflow:auto}
+#about h2{font-family:"Cormorant Garamond",serif;font-weight:600;font-size:28px;margin:0 0 10px;color:var(--ink)}
+#about a{color:var(--amber)}
+#about button{margin-top:14px;font:500 14px Barlow;background:rgba(255,184,92,.18);color:var(--amber);border:0;border-radius:999px;padding:9px 18px;cursor:pointer}
+#loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-weight:300;letter-spacing:.1em;z-index:6;background:var(--bg);transition:opacity .6s}
+@media (max-width:760px){
+  #head{left:16px;top:14px;right:16px;max-width:none}
+  #head h1{font-size:28px}
+  #head p{font-size:13px}
+  #clock{top:auto;bottom:84px;right:16px}
+  #clock .yr{font-size:24px}
+  #log{left:16px;right:16px;width:auto;bottom:84px;max-height:22vh}
+  #bar{bottom:14px;max-width:calc(100% - 24px);overflow-x:auto}
+  #bar button{padding:8px 10px;font-size:12px}
+  #credit{display:none}
+  .maplibregl-ctrl-bottom-right{display:none}
+  #clock{bottom:auto;top:14px;right:16px}
+  #head{right:110px}
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="scrim-t"></div><div id="scrim-b"></div>
+<div id="loading">LOADING OCEAN CURRENTS</div>
+<div id="head">
+  <h1>Bottle drift on<span>ocean currents</span></h1>
+  <p><b id="verb">Click anywhere on the ocean</b> to drop a bottle and watch it drift for up to five years on surface currents from the HYCOM ocean model.</p>
+</div>
+<div id="clock"><div class="yr" id="yr"></div><div class="mo" id="mo"></div></div>
+<div id="log"></div>
+<div id="bar">
+  <button id="play">Pause</button>
+  <div class="sep"></div>
+  <button data-speed="0.5">Slow</button>
+  <button data-speed="1" class="on">Normal</button>
+  <button data-speed="3">Fast</button>
+  <div class="sep"></div>
+  <button id="fill">Release 3,000 bottles</button>
+  <button id="globe">Flat map</button>
+  <button id="clear">Clear</button>
+  <button id="info">About</button>
+</div>
+<div id="credit">Currents: HYCOM global ocean model, monthly means 2019 to 2024, via Google Earth Engine.<br>© Elias Omondi, 2026</div>
+<div id="about"><div class="card">
+  <h2>How the bottles move</h2>
+  <p>Each bottle rides the ocean's surface currents. The currents come from HYCOM, the Hybrid Coordinate Ocean Model run by the US Navy and its partners, which blends satellite and buoy measurements with ocean physics. I averaged its surface currents for each calendar month over five years (September 2019 to August 2024) on a grid of a quarter of a degree, about 28 km at the equator.</p>
+  <p>Every simulated day, a bottle moves with the current where it sits, blended between months as the seasons turn. Real oceans are full of eddies, swirls tens of kilometres wide that monthly averages smooth away, so each bottle also takes a small random step every day. That is why bottles dropped at the same spot drift apart. A bottle that reaches land has washed up.</p>
+  <p>The bottles ride the water only. Real floating objects also get pushed by the wind, and the more they stick out of the water the more it pushes them, so treat these paths as a picture of where the sea itself would carry them.</p>
+  <p>Data: HYCOM via Google Earth Engine (dataset HYCOM/sea_water_velocity). Coastlines: Natural Earth. Map: MapLibre.<br>#30DayMapChallenge Day 13, Interactive. © Elias Omondi, 2026</p>
+  <button id="close">Back to the ocean</button>
+</div></div>
+
+<script src="maplibre-gl.js"></script>
+<script>
+(async function(){
+const RES=0.25, W=1440, H=720, STEP=0.015;      // grid and current quantisation (m/s per code unit)
+const DAYS=1826, KDIFF=1000;                       // five years, eddy diffusivity m2/s
+const M2DEG=1/111320;
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const PALETTE=['#ffb347','#ff6b6b','#ffe066','#ff8fd0','#b8f26b','#ffffff','#ffa07a','#d7a6ff'];
+const NAMEFIX={'United States of America':'the United States','Dem. Rep. Congo':'DR Congo','Central African Rep.':'the Central African Republic',
+ 'Dominican Rep.':'the Dominican Republic','Solomon Is.':'the Solomon Islands','Marshall Is.':'the Marshall Islands','Philippines':'the Philippines',
+ 'Netherlands':'the Netherlands','United Kingdom':'the United Kingdom','United Arab Emirates':'the United Arab Emirates','Bahamas':'the Bahamas',
+ 'Maldives':'the Maldives','Comoros':'the Comoros','Seychelles':'the Seychelles','Falkland Is.':'the Falkland Islands','Faeroe Is.':'the Faroe Islands',
+ 'Fr. S. Antarctic Lands':'the French Southern Lands','Fr. Polynesia':'French Polynesia','S. Geo. and the Is.':'South Georgia','Cook Is.':'the Cook Islands',
+ 'N. Mariana Is.':'the Northern Mariana Islands','Cayman Is.':'the Cayman Islands','Turks and Caicos Is.':'the Turks and Caicos Islands',
+ 'U.S. Virgin Is.':'the US Virgin Islands','British Virgin Is.':'the British Virgin Islands','Heard I. and McDonald Is.':'Heard Island',
+ 'Br. Indian Ocean Ter.':'the Chagos Islands','Indian Ocean Ter.':'Christmas Island','Wallis and Futuna Is.':'Wallis and Futuna','Pitcairn Is.':'the Pitcairn Islands',
+ 'Siachen Glacier':'India','Eq. Guinea':'Equatorial Guinea','Bosnia and Herz.':'Bosnia and Herzegovina','S. Sudan':'South Sudan','Antigua and Barb.':'Antigua and Barbuda',
+ 'St. Vin. and Gren.':'St Vincent and the Grenadines','São Tomé and Principe':'São Tomé and Príncipe','W. Sahara':'Western Sahara','Czechia':'Czechia'};
+
+// ---------- load data ----------
+async function pix(url){
+  const b=await (await fetch(url)).blob();
+  const bm=await createImageBitmap(b,{colorSpaceConversion:'none',premultiplyAlpha:'none'});
+  const c=document.createElement('canvas'); c.width=bm.width; c.height=bm.height;
+  const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(bm,0,0);
+  return x.getImageData(0,0,bm.width,bm.height).data;
+}
+const loads=[]; for(let m=1;m<=12;m++) loads.push(pix(`data/cur_${String(m).padStart(2,'0')}.png`));
+loads.push(pix('data/coast_country.png'));
+const [names, ...px]=await Promise.all([fetch('data/countries.json').then(r=>r.json()), ...loads]);
+const CC=px.pop();                                   // 3600x1800 nearest-country index
+const U=[],V=[]; let WATER=new Uint8Array(W*H);
+px.forEach((d,m)=>{const u=new Int8Array(W*H),v=new Int8Array(W*H);
+  for(let i=0,j=0;i<W*H;i++,j+=4){u[i]=d[j]-128;v[i]=d[j+1]-128;if(m===0)WATER[i]=d[j+2]>127?1:0;}
+  U.push(u);V.push(v);});
+
+const wrap=lon=>((lon+180)%360+360)%360-180;
+function cell(lon,lat){let x=Math.floor((wrap(lon)+180)/RES), y=Math.floor((90-lat)/RES);
+  if(y<0)y=0; if(y>=H)y=H-1; if(x>=W)x-=W; return y*W+x;}
+const isWater=(lon,lat)=>WATER[cell(lon,lat)]===1;
+function country(lon,lat){const x=Math.min(3599,Math.floor((wrap(lon)+180)*10)), y=Math.min(1799,Math.max(0,Math.floor((90-lat)*10)));
+  const n=names[CC[(y*3600+x)*4]]; return NAMEFIX[n]||n;}
+
+// bilinear current at (lon,lat) for a fractional month index
+function current(lon,lat,mf){
+  const m0=Math.floor(mf)%12, m1=(m0+1)%12, f=mf-Math.floor(mf);
+  let fx=(wrap(lon)+180)/RES-0.5, fy=(90-lat)/RES-0.5;
+  let x0=Math.floor(fx), y0=Math.floor(fy); const ax=fx-x0, ay=fy-y0;
+  if(y0<0)y0=0; if(y0>H-2)y0=H-2;
+  const xa=(x0+W)%W, xb=(x0+1)%W;
+  const i00=y0*W+xa,i10=y0*W+xb,i01=(y0+1)*W+xa,i11=(y0+1)*W+xb;
+  const w00=(1-ax)*(1-ay),w10=ax*(1-ay),w01=(1-ax)*ay,w11=ax*ay;
+  const s=(A)=>A[i00]*w00+A[i10]*w10+A[i01]*w01+A[i11]*w11;
+  const u=(s(U[m0])*(1-f)+s(U[m1])*f)*STEP, v=(s(V[m0])*(1-f)+s(V[m1])*f)*STEP;
+  return [u,v];
+}
+function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const DIFF_SD=Math.sqrt(2*KDIFF*86400);             // metres per day
+function stepBottle(b,mf){
+  if(b.done)return;
+  const lo0=b.lon, la0=b.lat, dt=43200;
+  let lo=lo0, la=la0;
+  for(let k=0;k<2;k++){
+    const c=Math.cos(la*Math.PI/180)||1e-6;
+    const [u1,v1]=current(lo,la,mf);
+    const mlon=lo+u1*dt*M2DEG/c/2, mlat=la+v1*dt*M2DEG/2;
+    const [u2,v2]=current(mlon,mlat,mf);
+    lo+=u2*dt*M2DEG/c; la+=v2*dt*M2DEG;
+  }
+  if(isWater(lo,la)){b.lon=lo;b.lat=la;}
+  else if(Math.random()<0.08){b.lon=lo;b.lat=la;b.done=true;b.ashore=country(lo,la);return finishStep(b);}   // pushed ashore and stuck
+  else if(isWater(lo,la0)){b.lon=lo;}            // slide along the coast
+  else if(isWater(lo0,la)){b.lat=la;}
+  // eddy step, only where it stays at sea
+  const c=Math.cos(b.lat*Math.PI/180)||1e-6;
+  const nlo=b.lon+gauss()*DIFF_SD*M2DEG/c, nla=b.lat+gauss()*DIFF_SD*M2DEG;
+  if(isWater(nlo,nla)){b.lon=nlo;b.lat=nla;}
+  if(b.lat>79.5)b.lat=79.5; if(b.lat<-77.5)b.lat=-77.5;
+  finishStep(b);
+}
+function finishStep(b){
+  const c=Math.cos(b.lat*Math.PI/180)||1e-6;
+  b.km+=Math.hypot((b.lon-b.plon)*c,b.lat-b.plat)*111.32; b.plon=b.lon; b.plat=b.lat;
+}
+
+// ---------- map ----------
+// the basemap tiles ship packed in one file; this hands MapLibre each tile from it
+const [TIDX,TBIN]=await Promise.all([fetch('data/basemap.json').then(r=>r.json()),fetch('data/basemap_tiles.jpg').then(r=>r.arrayBuffer())]);
+maplibregl.addProtocol('pack',async(params)=>{const k=params.url.replace('pack://',''), e=TIDX[k];
+  if(!e) throw new Error('no tile'); return {data:TBIN.slice(e[0],e[0]+e[1])};});
+const map=new maplibregl.Map({container:'map',center:[52,-6],zoom:window.innerWidth<760?1.0:2.05,maxZoom:7,attributionControl:false,
+  style:{version:8,projection:{type:'globe'},
+    sources:{bm:{type:'raster',tiles:['pack://{z}/{x}/{y}'],tileSize:256,maxzoom:4},
+             land:{type:'geojson',data:'data/land.json'},
+             streams:{type:'geojson',data:'data/streams.json'}},
+    layers:[{id:'bg',type:'background',paint:{'background-color':'#02040a'}},
+            {id:'bm',type:'raster',source:'bm',paint:{'raster-fade-duration':0,'raster-saturation':-0.05,'raster-brightness-min':0.04}},
+            {id:'coast',type:'line',source:'land',minzoom:2.5,paint:{'line-color':'rgba(255,255,255,0.28)','line-width':0.6}},
+            {id:'streams',type:'line',source:'streams',layout:{'line-cap':'round'},paint:{
+              'line-color':'#dff6ff',
+              'line-width':['interpolate',['linear'],['get','s'],0.04,0.5,0.3,1.1,0.8,2.2],
+              'line-opacity':['interpolate',['linear'],['get','s'],0.04,0.14,0.2,0.35,0.6,0.7]}}],
+    sky:{'atmosphere-blend':['interpolate',['linear'],['zoom'],0,0.85,4,0.3,6,0]}}});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'bottom-right');
+await new Promise(r=>map.on('load',r));
+(function(){const c=document.createElement('canvas');c.width=c.height=24;const g=c.getContext('2d');
+  g.strokeStyle='#eafaff';g.lineWidth=2.4;g.lineCap='round';g.lineJoin='round';g.beginPath();g.moveTo(8,6);g.lineTo(15,12);g.lineTo(8,18);g.stroke();
+  map.addImage('arrow',g.getImageData(0,0,24,24),{pixelRatio:2});})();
+map.addLayer({id:'arrows',type:'symbol',source:'streams',filter:['>',['get','s'],0.12],layout:{'symbol-placement':'line','symbol-spacing':140,'icon-image':'arrow',
+  'icon-size':['interpolate',['linear'],['zoom'],1,0.7,5,1.1],'icon-allow-overlap':false,'icon-rotation-alignment':'map'},
+  paint:{'icon-opacity':['interpolate',['linear'],['get','s'],0.12,0.3,0.6,0.8]}});
+const LABS=[];
+[['Pacific Ocean',-150,8],['Pacific Ocean',-130,-22],['Atlantic Ocean',-38,24],['Atlantic Ocean',-16,-22],['Indian Ocean',78,-18],['Southern Ocean',40,-58],['Southern Ocean',-110,-58],['Arctic Ocean',0,82]]
+ .forEach(([n,lo,la])=>{const el=document.createElement('div'),sp=document.createElement('span');sp.className='olab';sp.textContent=n;el.appendChild(sp);new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lo,la]).addTo(map);LABS.push([sp,lo,la]);});
+function hideBack(){ // hide ocean names on the far side of the globe
+  const c=map.getCenter(), r=Math.PI/180, globe=map.getProjection().type==='globe';
+  const cx=Math.cos(c.lat*r)*Math.cos(c.lng*r), cy=Math.cos(c.lat*r)*Math.sin(c.lng*r), cz=Math.sin(c.lat*r);
+  for(const [el,lo,la] of LABS){const d=Math.cos(la*r)*Math.cos(lo*r)*cx+Math.cos(la*r)*Math.sin(lo*r)*cy+Math.sin(la*r)*cz;
+    el.style.opacity=globe?Math.max(0,Math.min(1,(d-0.4)/0.25)):1;}
+}
+map.on('move',hideBack); hideBack();
+const empty={type:'FeatureCollection',features:[]};
+map.addSource('trails',{type:'geojson',data:empty});
+map.addSource('heads',{type:'geojson',data:empty});
+map.addSource('ashore',{type:'geojson',data:empty});
+map.addSource('swarm',{type:'geojson',data:empty});
+map.addLayer({id:'trails-case',type:'line',source:'trails',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#071226','line-width':3.2,'line-opacity':0.55}});
+map.addLayer({id:'trails',type:'line',source:'trails',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':['get','c'],'line-width':1.4,'line-opacity':0.95}});
+map.addLayer({id:'swarm',type:'circle',source:'swarm',paint:{'circle-radius':['interpolate',['linear'],['zoom'],1,1.3,5,2.6],'circle-color':'#f2f6ff','circle-opacity':0.9,'circle-stroke-color':'#06122a','circle-stroke-width':0.5}});
+map.addLayer({id:'ashore',type:'circle',source:'ashore',paint:{'circle-radius':3.4,'circle-color':['get','c'],'circle-stroke-color':'#071226','circle-stroke-width':1.4}});
+map.addLayer({id:'heads-glow',type:'circle',source:'heads',paint:{'circle-radius':9,'circle-color':['get','c'],'circle-opacity':0.25,'circle-blur':1}});
+map.addLayer({id:'heads',type:'circle',source:'heads',paint:{'circle-radius':3,'circle-color':'#fffaf0','circle-stroke-color':['get','c'],'circle-stroke-width':1.2}});
+document.getElementById('loading').style.opacity=0; setTimeout(()=>document.getElementById('loading').remove(),700);
+
+// ---------- simulation ----------
+const startMonth=new Date().getMonth()+new Date().getDate()/31;   // drift starts in the current season
+let day=0, speed=1, playing=true, drops=[], swarm=null, nDrop=0;
+const PER=15;
+function newDrop(lon,lat){
+  const c=PALETTE[nDrop%PALETTE.length]; nDrop++;
+  const bs=[];
+  for(let i=0;i<PER;i++){
+    const o=i?0.05:0, la=lat+gauss()*o, lo=lon+gauss()*o/Math.cos(lat*Math.PI/180);
+    bs.push({lon:lo,lat:la,plon:lo,plat:la,km:0,done:false,diff:1,path:[[lo,la]]});
+  }
+  const d={id:nDrop,c,lon,lat,from:country(lon,lat),bs,day0:day,age:0,el:null};
+  drops.push(d); addCard(d); if(!playing)togglePlay();
+}
+function addCard(d){
+  const el=document.createElement('div'); el.className='drop';
+  el.onclick=()=>map.flyTo({center:[d.bs[0].lon,d.bs[0].lat],zoom:Math.max(map.getZoom(),2.5),duration:1400});
+  d.el=el; document.getElementById('log').prepend(el); updateCard(d);
+}
+function summarise(d){
+  const at=d.bs.filter(b=>!b.done).length, by={};
+  d.bs.filter(b=>b.done).forEach(b=>by[b.ashore]=(by[b.ashore]||0)+1);
+  const parts=Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${n} in ${k}`);
+  return {at,parts};
+}
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+function ageText(dd){const y=Math.floor(dd/365.25), m=Math.floor((dd-y*365.25)/30.44);
+  if(y===0)return m<=1?(dd<30?`${dd} days`:'1 month'):`${m} months`;
+  return `${y} year${y>1?'s':''}`+(m?`, ${m} month${m>1?'s':''}`:'');}
+function card(el,c,title,age,stats,where,frac){
+  el.style.setProperty('--c',c);
+  el.innerHTML=`<div class="top"><span class="sw"></span><span class="t">${title}</span><span class="age">${age}</span></div>`+
+    `<div class="stats">${stats.map(([n,l])=>`<div><b>${n}</b><i>${l}</i></div>`).join('')}</div>`+
+    (where?`<div class="where">${where}</div>`:'')+`<div class="prog"><span style="width:${(frac*100).toFixed(1)}%"></span></div>`;
+}
+function updateCard(d){
+  const {at,parts}=summarise(d), far=Math.max(...d.bs.map(b=>b.km)), n=PER-at;
+  const list=parts.slice(0,3).map(p=>p.replace(/^(\d+) in (.*)$/,'$2 ($1)')).join(', ')+(parts.length>3?', and elsewhere':'');
+  const age=at===0?`all ashore by ${ageText(Math.max(...d.bs.map(b=>b.when||0)))}`:(d.age>=DAYS?'5 years':ageText(d.age||1));
+  card(d.el,d.c,`Off ${d.from.replace(/^the /,'')}`,age,[[n,'washed up'],[at,'at sea'],[Math.round(far).toLocaleString('en'),'km, farthest']],
+    n?`Washed up in ${list}.`:'',at===0?1:Math.min(1,d.age/DAYS));
+}
+function releaseSwarm(){
+  const pts=[]; let tries=0;
+  while(pts.length<3000&&tries<200000){tries++;
+    const lat=Math.asin(Math.random()*1.7-0.85)*180/Math.PI, lon=Math.random()*360-180;   // area-uniform, 58S to 58N
+    if(isWater(lon,lat)&&isWater(lon+0.6,lat)&&isWater(lon-0.6,lat)&&isWater(lon,lat+0.6)&&isWater(lon,lat-0.6))
+      pts.push({lon,lat,plon:lon,plat:lat,km:0,done:false,diff:1,path:null});}
+  const el=document.createElement('div'); el.className='drop';
+  document.getElementById('log').prepend(el);
+  swarm={bs:pts,age:0,el}; updateSwarm(); document.getElementById('fill').classList.add('on'); if(!playing)togglePlay();
+}
+function updateSwarm(){
+  if(!swarm)return; const n=swarm.bs.length, ash=swarm.bs.filter(b=>b.done).length, fin=swarm.age>=DAYS;
+  card(swarm.el,'#f2f6ff',`${n.toLocaleString('en')} bottles`,fin?'5 years':ageText(swarm.age||1),
+    [[ash.toLocaleString('en'),'washed up'],[(n-ash).toLocaleString('en'),'at sea']],
+    fin?'Many of those still at sea have gathered in the subtropical gyres, the slow ocean whirlpools where floating plastic also collects.':'',Math.min(1,swarm.age/DAYS));
+}
+function lineCoords(path){       // unwrap longitudes so lines cross the date line smoothly
+  const out=[]; let off=0, prev=path[0][0];
+  for(const [lo,la] of path){let l=lo+off; while(l-prev>180){l-=360;off-=360;} while(l-prev<-180){l+=360;off+=360;} out.push([l,la]); prev=l;}
+  return out;}
+function render(){
+  const tr=[],hd=[],as=[];
+  for(const d of drops){
+    for(const b of d.bs){
+      if(b.path.length>1) tr.push({type:'Feature',properties:{c:d.c},geometry:{type:'LineString',coordinates:lineCoords(b.path)}});
+      const p={type:'Feature',properties:{c:d.c},geometry:{type:'Point',coordinates:[b.lon,b.lat]}};
+      (b.done?as:hd).push(p);
+    }
+  }
+  map.getSource('trails').setData({type:'FeatureCollection',features:tr});
+  map.getSource('heads').setData({type:'FeatureCollection',features:hd});
+  map.getSource('ashore').setData({type:'FeatureCollection',features:as});
+  if(swarm) map.getSource('swarm').setData({type:'FeatureCollection',features:swarm.bs.filter(b=>!b.done).map(b=>({type:'Feature',properties:{},geometry:{type:'Point',coordinates:[b.lon,b.lat]}}))});
+  const mf=startMonth+Math.min(day,DAYS-1)/30.44, y=Math.min(5,Math.floor(day/365.25)+1);
+  document.getElementById('yr').textContent=(drops.length||swarm)?`Year ${y}`:'';
+  document.getElementById('mo').textContent=(drops.length||swarm)?MONTHS[Math.floor(mf)%12]:'';
+}
+let acc=0, last=performance.now(), cardT=0;
+function frame(now){
+  const dtms=Math.min(100,now-last); last=now;
+  if(playing&&(drops.some(d=>d.age<DAYS&&d.bs.some(b=>!b.done))||(swarm&&swarm.age<DAYS))){
+    acc+=dtms/1000*60*speed;                       // 60 simulated days per second at normal speed
+    let n=Math.floor(acc); acc-=n; n=Math.min(n,12);
+    for(let k=0;k<n;k++){
+      const mf=startMonth+day/30.44;
+      for(const d of drops){ if(d.age>=DAYS||d.bs.every(b=>b.done))continue;
+        d.age++;
+        for(const b of d.bs){ if(!b.done){stepBottle(b,mf); b.path.push([b.lon,b.lat]); if(b.done)b.when=d.age;} } }
+      if(swarm&&swarm.age<DAYS){ for(const b of swarm.bs) if(!b.done) stepBottle(b,mf); swarm.age++; }
+      day++;
+    }
+    if(n)render();
+  }
+  if(now-cardT>300){drops.forEach(updateCard);updateSwarm();cardT=now;}
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+map.on('click',e=>{
+  const {lng,lat}=e.lngLat;
+  if(!isWater(lng,lat)){flash('That is land. Try the ocean.');return;}
+  newDrop(wrap(lng),lat); render();
+});
+function flash(t){const p=document.querySelector('#head p'); const o=p.innerHTML; p.textContent=t; setTimeout(()=>p.innerHTML=o,1600);}
+function togglePlay(){playing=!playing; document.getElementById('play').textContent=playing?'Pause':'Play';}
+document.getElementById('play').onclick=togglePlay;
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('on',x===b));});
+document.getElementById('fill').onclick=()=>{ if(swarm){swarm.el.remove();swarm=null;map.getSource('swarm').setData(empty);document.getElementById('fill').classList.remove('on');} else releaseSwarm(); };
+document.getElementById('clear').onclick=()=>{drops=[];swarm=null;day=0;document.getElementById('log').innerHTML='';document.getElementById('fill').classList.remove('on');map.getSource('swarm').setData(empty);render();};
+let isGlobe=true;
+document.getElementById('globe').onclick=e=>{isGlobe=!isGlobe; map.setProjection({type:isGlobe?'globe':'mercator'}); e.target.textContent=isGlobe?'Flat map':'Globe'; setTimeout(hideBack,50);};
+document.getElementById('info').onclick=()=>document.getElementById('about').classList.add('show');
+document.getElementById('close').onclick=()=>document.getElementById('about').classList.remove('show');
+document.getElementById('about').onclick=e=>{if(e.target.id==='about')e.target.classList.remove('show');};
+// a first bottle so the page is never still
+setTimeout(()=>{ if(!drops.length&&!swarm) newDrop(40.9,-3.6); },1800);
+if(matchMedia('(pointer:coarse)').matches)document.getElementById('verb').textContent='Tap anywhere on the ocean';
+window._sim={map,get drops(){return drops},get day(){return day},newDrop,releaseSwarm,current,isWater,country};
+})();
+</script>
+</body>
+</html>
