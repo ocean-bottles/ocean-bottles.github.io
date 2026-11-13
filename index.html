@@ -375,8 +375,21 @@ document.getElementById('info').onclick=()=>document.getElementById('about').cla
 document.getElementById('close').onclick=()=>document.getElementById('about').classList.remove('show');
 document.getElementById('about').onclick=e=>{if(e.target.id==='about')e.target.classList.remove('show');};
 // a first bottle so the page is never still
-setTimeout(()=>{ if(!drops.length&&!swarm) newDrop(40.9,-3.6); },1800);
+if(!location.search.includes('record')) setTimeout(()=>{ if(!drops.length&&!swarm) newDrop(40.9,-3.6); },1800);
 if(matchMedia('(pointer:coarse)').matches)document.getElementById('verb').textContent='Tap anywhere on the ocean';
+// frame-by-frame recording controls, only with ?record in the address
+if(location.search.includes('record')) window._cap={
+  stop(){ if(playing) togglePlay(); },
+  step(n){ for(let k=0;k<n;k++){
+      const mf=startMonth+day/30.44;
+      for(const d of drops){ if(d.age>=DAYS||d.bs.every(b=>b.done))continue; d.age++;
+        for(const b of d.bs){ if(!b.done){stepBottle(b,mf); b.path.push([b.lon,b.lat]); if(b.done)b.when=d.age;} } }
+      if(swarm&&swarm.age<DAYS){ for(const b of swarm.bs) if(!b.done) stepBottle(b,mf); swarm.age++; }
+      day++; }
+    render(); drops.forEach(updateCard); updateSwarm(); },
+  drop(lo,la){ newDrop(lo,la); if(playing) togglePlay(); render(); },
+  swarm(){ releaseSwarm(); if(playing) togglePlay(); }
+};
 window._sim={map,get drops(){return drops},get day(){return day},newDrop,releaseSwarm,current,isWater,country};
 })();
 </script>
