@@ -7,7 +7,7 @@
 <meta name="description" content="Drop a bottle anywhere on the ocean and watch it drift for five years on real surface currents. #30DayMapChallenge Day 13, Interactive. © Elias Omondi, 2026">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Barlow:wght@300;400;500&family=Geist:wght@300;400;500&family=Geist+Mono:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="maplibre-gl.css">
 <style>
 :root{
@@ -34,28 +34,35 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family
 #head p{margin:0;color:var(--dim);font-weight:300;font-size:15px;line-height:1.45}
 #head p b{color:var(--amber);font-weight:500}
 #clock{position:absolute;right:24px;top:20px;text-align:right;pointer-events:none}
-#clock .yr{font-family:"Cormorant Garamond",serif;font-size:34px;font-weight:600;line-height:1}
-#clock .mo{color:var(--dim);font-size:14px;letter-spacing:.12em;text-transform:uppercase;margin-top:4px}
+#clock{font-family:"Geist Mono",ui-monospace,monospace;display:flex;gap:22px;align-items:flex-end}
+#clock .cell{display:flex;flex-direction:column;align-items:flex-start;min-width:46px}
+#clock .k{font-size:10px;letter-spacing:.16em;color:rgba(233,228,216,.42);text-transform:uppercase}
+#clock .v{font-size:30px;font-weight:300;line-height:1.05;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:6px}
+#clock .tick{position:absolute;right:0;bottom:-10px;height:1px;background:rgba(233,228,216,.5)}
+#clock .track{position:absolute;right:0;bottom:-10px;height:1px;width:100%;background:rgba(233,228,216,.12)}
 #bar{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:flex;gap:6px;align-items:center;
-  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px;backdrop-filter:blur(8px)}
-#bar button{font:500 13px Barlow,sans-serif;color:var(--ink);background:transparent;border:0;border-radius:999px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+  background:rgba(3,7,14,.62);border:1px solid rgba(233,228,216,.13);border-radius:3px;padding:4px;backdrop-filter:blur(10px)}
+#bar button{font:400 12.5px Geist,system-ui,sans-serif;letter-spacing:.01em;color:var(--ink);background:transparent;border:0;border-radius:2px;padding:8px 13px;cursor:pointer;white-space:nowrap;color:rgba(233,228,216,.7)}
 #bar button:hover{background:rgba(255,255,255,.08)}
-#bar button.on{background:rgba(255,184,92,.18);color:var(--amber)}
+#bar button.on{background:rgba(233,228,216,.1);color:var(--ink)}
 #bar .sep{width:1px;height:20px;background:var(--line)}
 #log{position:absolute;left:24px;bottom:22px;width:330px;max-height:42vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
-.drop{position:relative;background:rgba(6,12,24,.72);border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:12px 14px 12px;font-size:13px;line-height:1.4;backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.35);transition:background .2s}
-.drop:hover{background:rgba(10,18,34,.82)}
-.drop .top{display:flex;align-items:center;gap:9px;margin-bottom:9px}
-.drop .sw{width:11px;height:11px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent),0 0 12px var(--c);flex:none}
-.drop .t{font-weight:500;color:var(--ink);font-size:14px;flex:1}
-.drop .age{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.drop .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.drop .stats div{display:flex;flex-direction:column}
-.drop .stats b{font-family:"Cormorant Garamond",serif;font-weight:600;font-size:24px;line-height:1;color:var(--ink);font-variant-numeric:lining-nums tabular-nums}
-.drop .stats i{font-style:normal;color:var(--faint);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
-.drop .where{color:var(--dim);font-weight:300;margin-top:9px;font-size:12.5px}
-.drop .prog{height:2px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:10px;overflow:hidden}
-.drop .prog span{display:block;height:100%;background:rgba(255,255,255,.45)}
+.drop{position:relative;background:rgba(3,7,14,.62);border:1px solid rgba(233,228,216,.13);border-radius:3px;padding:12px 14px 11px;
+  font-family:Geist,system-ui,sans-serif;font-size:12.5px;line-height:1.45;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer;transition:border-color .2s}
+.drop:hover{border-color:rgba(233,228,216,.32)}
+.drop .top{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
+.drop .n{font-family:"Geist Mono",monospace;font-size:10px;color:rgba(233,228,216,.42);letter-spacing:.06em}
+.drop .sw{width:7px;height:7px;background:var(--c);flex:none;align-self:center}
+.drop .t{font-weight:400;color:var(--ink);font-size:13px;flex:1;letter-spacing:-.005em}
+.drop .age{font-family:"Geist Mono",monospace;color:rgba(233,228,216,.5);font-size:10.5px;white-space:nowrap;letter-spacing:.02em}
+.drop .stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid rgba(233,228,216,.1);padding-top:10px}
+.drop .stats div{display:flex;flex-direction:column-reverse;gap:5px}
+.drop .stats div+div{padding-left:12px;border-left:1px solid rgba(233,228,216,.08)}
+.drop .stats b{font-family:"Geist Mono",monospace;font-weight:300;font-size:21px;line-height:1;color:var(--ink);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.drop .stats i{font-family:"Geist Mono",monospace;font-style:normal;color:rgba(233,228,216,.42);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase}
+.drop .where{color:rgba(233,228,216,.62);font-weight:300;margin-top:10px;font-size:12px}
+.drop .prog{height:1px;background:rgba(233,228,216,.1);margin-top:11px}
+.drop .prog span{display:block;height:1px;background:var(--c)}
 .olab{display:block;transition:opacity .2s;font-family:"Cormorant Garamond",serif;font-style:italic;font-weight:500;font-size:15px;letter-spacing:.18em;color:rgba(225,240,255,.62);text-shadow:0 1px 6px rgba(0,10,30,.9);pointer-events:none;white-space:nowrap}
 #credit{position:absolute;right:64px;bottom:26px;color:var(--faint);font-size:11px;text-align:right;line-height:1.5;max-width:300px}
 #credit a{color:var(--dim)}
@@ -64,14 +71,14 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family
 #about .card{max-width:560px;margin:16px;background:#0b1320;border:1px solid var(--line);border-radius:14px;padding:26px 28px;font-weight:300;line-height:1.55;color:#cfd5dc;font-size:15px;max-height:85vh;overflow:auto}
 #about h2{font-family:"Cormorant Garamond",serif;font-weight:600;font-size:28px;margin:0 0 10px;color:var(--ink)}
 #about a{color:var(--amber)}
-#about button{margin-top:14px;font:500 14px Barlow;background:rgba(255,184,92,.18);color:var(--amber);border:0;border-radius:999px;padding:9px 18px;cursor:pointer}
+#about button{margin-top:14px;font:400 13px Geist,sans-serif;background:rgba(233,228,216,.1);color:var(--ink);border:1px solid rgba(233,228,216,.2);border-radius:3px;padding:9px 18px;cursor:pointer}
 #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-weight:300;letter-spacing:.1em;z-index:6;background:var(--bg);transition:opacity .6s}
 @media (max-width:760px){
   #head{left:16px;top:14px;right:16px;max-width:none}
   #head h1{font-size:28px}
   #head p{font-size:13px}
   #clock{top:auto;bottom:84px;right:16px}
-  #clock .yr{font-size:24px}
+  #clock .v{font-size:22px}
   #log{left:16px;right:16px;width:auto;bottom:84px;max-height:22vh}
   #bar{bottom:14px;max-width:calc(100% - 24px);overflow-x:auto}
   #bar button{padding:8px 10px;font-size:12px}
@@ -90,7 +97,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family
   <h1>Bottle drift on<span>ocean currents</span></h1>
   <p><b id="verb">Click anywhere on the ocean</b> to drop a bottle and watch it drift for up to five years on surface currents from the HYCOM ocean model.</p>
 </div>
-<div id="clock"><div class="yr" id="yr"></div><div class="mo" id="mo"></div></div>
+<div id="clock"><div class="cell"><span class="k">Year</span><span class="v" id="yr">00</span></div><div class="cell"><span class="k">Month</span><span class="v" id="mo">---</span></div><span class="track"></span><span class="tick" id="tick"></span></div>
 <div id="log"></div>
 <div id="bar">
   <button id="play">Pause</button>
@@ -277,9 +284,9 @@ const cap=s=>s[0].toUpperCase()+s.slice(1);
 function ageText(dd){const y=Math.floor(dd/365.25), m=Math.floor((dd-y*365.25)/30.44);
   if(y===0)return m<=1?(dd<30?`${dd} days`:'1 month'):`${m} months`;
   return `${y} year${y>1?'s':''}`+(m?`, ${m} month${m>1?'s':''}`:'');}
-function card(el,c,title,age,stats,where,frac){
+function card(el,c,title,age,stats,where,frac,num){
   el.style.setProperty('--c',c);
-  el.innerHTML=`<div class="top"><span class="sw"></span><span class="t">${title}</span><span class="age">${age}</span></div>`+
+  el.innerHTML=`<div class="top"><span class="n">${num}</span><span class="sw"></span><span class="t">${title}</span><span class="age">${age}</span></div>`+
     `<div class="stats">${stats.map(([n,l])=>`<div><b>${n}</b><i>${l}</i></div>`).join('')}</div>`+
     (where?`<div class="where">${where}</div>`:'')+`<div class="prog"><span style="width:${(frac*100).toFixed(1)}%"></span></div>`;
 }
@@ -287,8 +294,8 @@ function updateCard(d){
   const {at,parts}=summarise(d), far=Math.max(...d.bs.map(b=>b.km)), n=PER-at;
   const list=parts.slice(0,3).map(p=>p.replace(/^(\d+) in (.*)$/,'$2 ($1)')).join(', ')+(parts.length>3?', and elsewhere':'');
   const age=at===0?`all ashore by ${ageText(Math.max(...d.bs.map(b=>b.when||0)))}`:(d.age>=DAYS?'5 years':ageText(d.age||1));
-  card(d.el,d.c,`Off ${d.from.replace(/^the /,'')}`,age,[[n,'washed up'],[at,'at sea'],[Math.round(far).toLocaleString('en'),'km, farthest']],
-    n?`Washed up in ${list}.`:'',at===0?1:Math.min(1,d.age/DAYS));
+  card(d.el,d.c,`Off ${d.from.replace(/^the /,'')}`,age,[[n,'ashore'],[at,'at sea'],[Math.round(far).toLocaleString('en'),'km max']],
+    n?`Washed up in ${list}.`:'',at===0?1:Math.min(1,d.age/DAYS),String(d.id).padStart(2,'0'));
 }
 function releaseSwarm(){
   const pts=[]; let tries=0;
@@ -303,8 +310,8 @@ function releaseSwarm(){
 function updateSwarm(){
   if(!swarm)return; const n=swarm.bs.length, ash=swarm.bs.filter(b=>b.done).length, fin=swarm.age>=DAYS;
   card(swarm.el,'#f2f6ff',`${n.toLocaleString('en')} bottles`,fin?'5 years':ageText(swarm.age||1),
-    [[ash.toLocaleString('en'),'washed up'],[(n-ash).toLocaleString('en'),'at sea']],
-    fin?'Many of those still at sea have gathered in the subtropical gyres, the slow ocean whirlpools where floating plastic also collects.':'',Math.min(1,swarm.age/DAYS));
+    [[ash.toLocaleString('en'),'ashore'],[(n-ash).toLocaleString('en'),'at sea']],
+    fin?'Many of those still at sea have gathered in the subtropical gyres, the slow ocean whirlpools where floating plastic also collects.':'',Math.min(1,swarm.age/DAYS),'ALL');
 }
 function lineCoords(path){       // unwrap longitudes so lines cross the date line smoothly
   const out=[]; let off=0, prev=path[0][0];
@@ -324,8 +331,10 @@ function render(){
   map.getSource('ashore').setData({type:'FeatureCollection',features:as});
   if(swarm) map.getSource('swarm').setData({type:'FeatureCollection',features:swarm.bs.filter(b=>!b.done).map(b=>({type:'Feature',properties:{},geometry:{type:'Point',coordinates:[b.lon,b.lat]}}))});
   const mf=startMonth+Math.min(day,DAYS-1)/30.44, y=Math.min(5,Math.floor(day/365.25)+1);
-  document.getElementById('yr').textContent=(drops.length||swarm)?`Year ${y}`:'';
-  document.getElementById('mo').textContent=(drops.length||swarm)?MONTHS[Math.floor(mf)%12]:'';
+  const on=drops.length||swarm;
+  document.getElementById('yr').textContent=on?String(y).padStart(2,'0'):'00';
+  document.getElementById('mo').textContent=on?MONTHS[Math.floor(mf)%12].slice(0,3).toUpperCase():'---';
+  document.getElementById('tick').style.width=(on?Math.min(1,day/DAYS)*100:0)+'%';
 }
 let acc=0, last=performance.now(), cardT=0;
 function frame(now){
